@@ -1,3 +1,42 @@
+//package com.manage.config;
+//
+//import java.util.List;
+//
+//import org.springframework.context.annotation.Bean;
+//import org.springframework.context.annotation.Configuration;
+//import org.springframework.web.cors.CorsConfiguration;
+//import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
+//import org.springframework.web.cors.CorsConfigurationSource;
+//
+//@Configuration
+//public class CorsConfig {
+//
+//    @Bean
+//    CorsConfigurationSource corsConfigurationSource() {
+//
+//        CorsConfiguration configuration = new CorsConfiguration();
+//
+//        configuration.setAllowedOrigins(
+//                List.of("http://localhost:5173"));
+//
+//        configuration.setAllowedMethods(
+//                List.of("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"));
+//
+//        configuration.setAllowedHeaders(
+//                List.of("*"));
+//
+//        configuration.setAllowCredentials(true);
+//
+//        UrlBasedCorsConfigurationSource source =
+//                new UrlBasedCorsConfigurationSource();
+//
+//        source.registerCorsConfiguration("/**", configuration);
+//
+//        return source;
+//    }
+//}
+
+
 package com.manage.config;
 
 import java.util.List;
@@ -5,8 +44,8 @@ import java.util.List;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.web.cors.CorsConfiguration;
-import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 import org.springframework.web.cors.CorsConfigurationSource;
+import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
 @Configuration
 public class CorsConfig {
@@ -14,23 +53,40 @@ public class CorsConfig {
     @Bean
     CorsConfigurationSource corsConfigurationSource() {
 
-        CorsConfiguration configuration = new CorsConfiguration();
+        CorsConfiguration configuration =
+                new CorsConfiguration();
 
         configuration.setAllowedOrigins(
-                List.of("http://localhost:5173"));
+                List.of(
+                        "http://localhost:5173",
+                        "https://employee-management-backend-1-rfi2.onrender.com"
+                )
+        );
 
         configuration.setAllowedMethods(
-                List.of("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"));
+                List.of(
+                        "GET",
+                        "POST",
+                        "PUT",
+                        "DELETE",
+                        "PATCH",
+                        "OPTIONS"
+                )
+        );
 
         configuration.setAllowedHeaders(
-                List.of("*"));
+                List.of("*")
+        );
 
         configuration.setAllowCredentials(true);
 
         UrlBasedCorsConfigurationSource source =
                 new UrlBasedCorsConfigurationSource();
 
-        source.registerCorsConfiguration("/**", configuration);
+        source.registerCorsConfiguration(
+                "/**",
+                configuration
+        );
 
         return source;
     }
