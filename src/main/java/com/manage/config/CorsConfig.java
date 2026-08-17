@@ -59,7 +59,7 @@ public class CorsConfig {
         configuration.setAllowedOrigins(
                 List.of(
                         "http://localhost:5173",
-                        "https://employee-management-backend-1-rfi2.onrender.com"
+                        "https://employee-mangement-frontend.vercel.app"
                 )
         );
 
