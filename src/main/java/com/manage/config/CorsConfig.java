@@ -36,7 +36,6 @@
 //    }
 //}
 
-
 package com.manage.config;
 
 import java.util.List;
@@ -60,6 +59,12 @@ public class CorsConfig {
                 List.of(
                         "http://localhost:5173",
                         "https://employee-mangement-frontend.vercel.app"
+                )
+        );
+
+        configuration.setAllowedOriginPatterns(
+                List.of(
+                        "https://*.vercel.app"
                 )
         );
 
