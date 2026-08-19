@@ -22,12 +22,12 @@ public class EmployeeManagementSystemApplication {
 
 	    return args -> {
 
-	        if (!repo.existsByEmail("admin@gmail.com")) {
+	        if (!repo.existsByEmail("borhadeparth24@gmail.com")) {
 
 	            User admin = new User();
 
 	            admin.setName("Admin");
-	            admin.setEmail("admin@gmail.com");
+	            admin.setEmail("borhadeparth24@gmail.com");
 	            admin.setPassword(
 	                encoder.encode("Admin@123")
 	            );
