@@ -26,7 +26,7 @@ public class EmployeeManagementSystemApplication {
 
 	            User admin = new User();
 
-	            admin.setName("Admin");
+	            admin.setName("Parth");
 	            admin.setEmail("borhadeparth24@gmail.com");
 	            admin.setPassword(
 	                encoder.encode("Admin@123")
