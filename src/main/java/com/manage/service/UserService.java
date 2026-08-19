@@ -84,6 +84,28 @@ public class UserService {
             "User Registered Successfully"
         );
     }
+    
+    public void createAdmin() {
+
+        if (repo.existsByEmail("admin@gmail.com")) {
+            return;
+        }
+
+        User admin = new User();
+
+        admin.setName("Admin");
+        admin.setEmail("admin@gmail.com");
+        admin.setPassword(
+            encoder.encode("Admin@123")
+        );
+        admin.setRole("ADMIN");
+
+        admin.setDepartment(null);
+        admin.setSalary(null);
+        admin.setJoiningDate(null);
+
+        repo.save(admin);
+    }
 
 
     // =====================================================
