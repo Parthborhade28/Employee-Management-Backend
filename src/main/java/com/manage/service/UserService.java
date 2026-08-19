@@ -49,38 +49,39 @@ public class UserService {
 
     public AuthResponse register(RegisterRequest dto) {
 
-        // Check duplicate email
+        long start = System.currentTimeMillis();
+
+        System.out.println("REGISTER START");
+
         if (repo.existsByEmail(dto.getEmail())) {
 
             throw new RuntimeException(
-                    "Email already exists"
+                "Email already exists"
             );
         }
 
-        // Create User
-        User user = mapper.map(
-                dto,
-                User.class
-        );
+        User user = mapper.map(dto, User.class);
 
-        // Encode password
         user.setPassword(
-                encoder.encode(dto.getPassword())
+            encoder.encode(dto.getPassword())
         );
 
-        // Self-registered users are always USER
         user.setRole("USER");
 
-        // Employee information will be assigned
-        // when Admin creates/updates the employee
         user.setDepartment(null);
         user.setSalary(null);
         user.setJoiningDate(null);
 
         repo.save(user);
 
+        System.out.println(
+            "Total register took: "
+            + (System.currentTimeMillis() - start)
+            + " ms"
+        );
+
         return new AuthResponse(
-                "User Registered Successfully"
+            "User Registered Successfully"
         );
     }
 
@@ -91,17 +92,30 @@ public class UserService {
 
     public AuthResponse login(LoginRequest dto) {
 
+        long start = System.currentTimeMillis();
+
+        System.out.println("LOGIN START");
+
         authenticationManager.authenticate(
-                new UsernamePasswordAuthenticationToken(
-                        dto.getEmail(),
-                        dto.getPassword()
-                )
+            new UsernamePasswordAuthenticationToken(
+                dto.getEmail(),
+                dto.getPassword()
+            )
         );
 
-        String token =
-                jwtService.generateToken(
-                        dto.getEmail()
-                );
+        System.out.println(
+            "Authentication took: "
+            + (System.currentTimeMillis() - start)
+            + " ms"
+        );
+
+        String token = jwtService.generateToken(dto.getEmail());
+
+        System.out.println(
+            "Total login took: "
+            + (System.currentTimeMillis() - start)
+            + " ms"
+        );
 
         return new AuthResponse(token);
     }
