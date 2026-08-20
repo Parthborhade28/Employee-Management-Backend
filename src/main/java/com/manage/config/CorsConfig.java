@@ -1,44 +1,6 @@
-//package com.manage.config;
-//
-//import java.util.List;
-//
-//import org.springframework.context.annotation.Bean;
-//import org.springframework.context.annotation.Configuration;
-//import org.springframework.web.cors.CorsConfiguration;
-//import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
-//import org.springframework.web.cors.CorsConfigurationSource;
-//
-//@Configuration
-//public class CorsConfig {
-//
-//    @Bean
-//    CorsConfigurationSource corsConfigurationSource() {
-//
-//        CorsConfiguration configuration = new CorsConfiguration();
-//
-//        configuration.setAllowedOrigins(
-//                List.of("http://localhost:5173"));
-//
-//        configuration.setAllowedMethods(
-//                List.of("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"));
-//
-//        configuration.setAllowedHeaders(
-//                List.of("*"));
-//
-//        configuration.setAllowCredentials(true);
-//
-//        UrlBasedCorsConfigurationSource source =
-//                new UrlBasedCorsConfigurationSource();
-//
-//        source.registerCorsConfiguration("/**", configuration);
-//
-//        return source;
-//    }
-//}
-
 package com.manage.config;
 
-import java.util.List;
+import java.util.Arrays;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -50,48 +12,31 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 public class CorsConfig {
 
     @Bean
-    CorsConfigurationSource corsConfigurationSource() {
+    public CorsConfigurationSource corsConfigurationSource() {
 
-        CorsConfiguration configuration =
-                new CorsConfiguration();
+        CorsConfiguration configuration = new CorsConfiguration();
 
-        configuration.setAllowedOrigins(
-                List.of(
-                        "http://localhost:5173",
-                        "https://employee-mangement-frontend.vercel.app"
-                )
-        );
+        configuration.setAllowedOrigins(Arrays.asList(
+            "https://employee-mangement-frontend-lmq1vjgpx-parthborhade28s-projects.vercel.app",
+            "https://employee-mangement-frontend-git-main-parthborhade28s-projects.vercel.app"
+        ));
 
-        configuration.setAllowedOriginPatterns(
-                List.of(
-                        "https://*.vercel.app"
-                )
-        );
+        configuration.setAllowedMethods(Arrays.asList(
+            "GET",
+            "POST",
+            "PUT",
+            "DELETE",
+            "OPTIONS"
+        ));
 
-        configuration.setAllowedMethods(
-                List.of(
-                        "GET",
-                        "POST",
-                        "PUT",
-                        "DELETE",
-                        "PATCH",
-                        "OPTIONS"
-                )
-        );
+        configuration.setAllowedHeaders(Arrays.asList("*"));
 
-        configuration.setAllowedHeaders(
-                List.of("*")
-        );
-
-        configuration.setAllowCredentials(true);
+        configuration.setAllowCredentials(false);
 
         UrlBasedCorsConfigurationSource source =
                 new UrlBasedCorsConfigurationSource();
 
-        source.registerCorsConfiguration(
-                "/**",
-                configuration
-        );
+        source.registerCorsConfiguration("/**", configuration);
 
         return source;
     }
