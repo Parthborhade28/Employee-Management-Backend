@@ -6,6 +6,9 @@ import java.util.List;
 
 import org.modelmapper.ModelMapper;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.cache.annotation.Caching;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -28,555 +31,367 @@ import com.manage.repo.UserRepo;
 @Service
 public class EmployeeService {
 
-    @Autowired
-    private EmployeeRepo emprepo;
+	@Autowired
+	private EmployeeRepo emprepo;
 
-    @Autowired
-    private UserRepo userRepo;
+	@Autowired
+	private UserRepo userRepo;
 
-    @Autowired
-    private ModelMapper modelMapper;
+	@Autowired
+	private ModelMapper modelMapper;
 
-    @Autowired
-    private FileService fileService;
+	@Autowired
+	private FileService fileService;
 
-    @Autowired
-    private ExcelService excelService;
+	@Autowired
+	private ExcelService excelService;
 
-    @Autowired
-    private PdfService pdfService;
+	@Autowired
+	private PdfService pdfService;
 
+	// =====================================================
+	// ADD EMPLOYEE
+	// =====================================================
 
-    // =====================================================
-    // ADD EMPLOYEE
-    // =====================================================
+	public EmployeeResponseDTO save(EmployeeRequestDTO dto) throws IOException {
 
-    public EmployeeResponseDTO save(EmployeeRequestDTO dto)
-            throws IOException {
+		if (emprepo.existsByEmail(dto.getEmail())) {
 
-        if (emprepo.existsByEmail(dto.getEmail())) {
+			throw new RuntimeException("Email already exists");
+		}
 
-            throw new RuntimeException(
-                    "Email already exists"
-            );
-        }
+		Employee emp = new Employee();
 
-        Employee emp = new Employee();
+		emp.setFirstName(dto.getFirstName());
+		emp.setLastName(dto.getLastName());
+		emp.setEmail(dto.getEmail());
+		emp.setPhone(dto.getPhone());
+		emp.setDepartment(dto.getDepartment());
+		emp.setSalary(dto.getSalary());
+		emp.setJoiningDate(dto.getJoiningDate());
 
-        emp.setFirstName(dto.getFirstName());
-        emp.setLastName(dto.getLastName());
-        emp.setEmail(dto.getEmail());
-        emp.setPhone(dto.getPhone());
-        emp.setDepartment(dto.getDepartment());
-        emp.setSalary(dto.getSalary());
-        emp.setJoiningDate(dto.getJoiningDate());
+		// Upload profile image
+		if (dto.getProfileImage() != null && !dto.getProfileImage().isEmpty()) {
 
-        // Upload profile image
-        if (dto.getProfileImage() != null
-                && !dto.getProfileImage().isEmpty()) {
+			String fileName = fileService.uploadFile(dto.getProfileImage());
 
-            String fileName =
-                    fileService.uploadFile(
-                            dto.getProfileImage()
-                    );
+			emp.setProfileImage(fileName);
+		}
 
-            emp.setProfileImage(fileName);
-        }
+		Employee savedEmployee = emprepo.save(emp);
 
-        Employee savedEmployee =
-                emprepo.save(emp);
+		// =================================================
+		// SYNC REGISTERED USER
+		// =================================================
 
+		syncUserWithEmployee(savedEmployee);
 
-        // =================================================
-        // SYNC REGISTERED USER
-        // =================================================
+		return convertToResponse(savedEmployee);
+	}
 
-        syncUserWithEmployee(savedEmployee);
+	// =====================================================
+	// SYNC USER DATA
+	// =====================================================
 
+	private void syncUserWithEmployee(Employee employee) {
 
-        return convertToResponse(savedEmployee);
-    }
+		userRepo.findByEmail(employee.getEmail()).ifPresent(user -> {
 
+			user.setDepartment(employee.getDepartment());
 
-    // =====================================================
-    // SYNC USER DATA
-    // =====================================================
+			user.setSalary(employee.getSalary());
 
-    private void syncUserWithEmployee(
-            Employee employee) {
+			user.setJoiningDate(employee.getJoiningDate());
 
-        userRepo.findByEmail(
-                employee.getEmail()
-        ).ifPresent(user -> {
+			userRepo.save(user);
+		});
+	}
 
-            user.setDepartment(
-                    employee.getDepartment()
-            );
+	// =====================================================
+	// GET ALL EMPLOYEES
+	// =====================================================
 
-            user.setSalary(
-                    employee.getSalary()
-            );
+	@Cacheable(value = "employeeList", key = "'all'")
+	public List<EmployeeResponseDTO> getAll() {
 
-            user.setJoiningDate(
-                    employee.getJoiningDate()
-            );
+		return emprepo.findAll().stream().map(this::convertToResponse).toList();
+	}
 
-            userRepo.save(user);
-        });
-    }
+	// =====================================================
+	// GET EMPLOYEE BY ID
+	// =====================================================
 
+	@Cacheable(value = "employees", key = "#id")
+	public EmployeeResponseDTO getEmployeeById(Long id) {
 
-    // =====================================================
-    // GET ALL EMPLOYEES
-    // =====================================================
+		Employee emp = emprepo.findById(id).orElseThrow(() -> new EmployeeNotFoundException("Employee Not Found"));
 
-    public List<EmployeeResponseDTO> getAll() {
+		return convertToResponse(emp);
+	}
 
-        return emprepo.findAll()
-                .stream()
-                .map(this::convertToResponse)
-                .toList();
-    }
+	// =====================================================
+	// UPDATE EMPLOYEE
+	// =====================================================
 
+	@Caching(evict = { @CacheEvict(value = "employees", key = "#id"),
+			@CacheEvict(value = "employeeList", key = "'all'") })
+	public EmployeeResponseDTO updateEmployee(Long id, EmployeeRequestDTO dto) throws IOException {
 
-    // =====================================================
-    // GET EMPLOYEE BY ID
-    // =====================================================
+		Employee emp = emprepo.findById(id).orElseThrow(() -> new EmployeeNotFoundException("Employee Not Found"));
 
-    public EmployeeResponseDTO getEmployeeById(
-            Long id) {
+		String oldEmail = emp.getEmail();
 
-        Employee emp =
-                emprepo.findById(id)
-                        .orElseThrow(
-                                () -> new EmployeeNotFoundException(
-                                        "Employee Not Found"
-                                )
-                        );
+		emp.setFirstName(dto.getFirstName());
 
-        return convertToResponse(emp);
-    }
+		emp.setLastName(dto.getLastName());
 
+		emp.setEmail(dto.getEmail());
 
-    // =====================================================
-    // UPDATE EMPLOYEE
-    // =====================================================
+		emp.setPhone(dto.getPhone());
 
-    public EmployeeResponseDTO updateEmployee(
-            Long id,
-            EmployeeRequestDTO dto)
-            throws IOException {
+		emp.setDepartment(dto.getDepartment());
 
-        Employee emp =
-                emprepo.findById(id)
-                        .orElseThrow(
-                                () -> new EmployeeNotFoundException(
-                                        "Employee Not Found"
-                                )
-                        );
+		emp.setSalary(dto.getSalary());
 
-        String oldEmail = emp.getEmail();
+		emp.setJoiningDate(dto.getJoiningDate());
 
-        emp.setFirstName(
-                dto.getFirstName()
-        );
+		// Upload new image
+		if (dto.getProfileImage() != null && !dto.getProfileImage().isEmpty()) {
 
-        emp.setLastName(
-                dto.getLastName()
-        );
+			String fileName = fileService.uploadFile(dto.getProfileImage());
 
-        emp.setEmail(
-                dto.getEmail()
-        );
+			emp.setProfileImage(fileName);
+		}
 
-        emp.setPhone(
-                dto.getPhone()
-        );
+		Employee updatedEmployee = emprepo.save(emp);
 
-        emp.setDepartment(
-                dto.getDepartment()
-        );
+		// =================================================
+		// UPDATE REGISTERED USER
+		// =================================================
 
-        emp.setSalary(
-                dto.getSalary()
-        );
+		syncUserAfterUpdate(oldEmail, updatedEmployee);
 
-        emp.setJoiningDate(
-                dto.getJoiningDate()
-        );
+		return convertToResponse(updatedEmployee);
+	}
 
+	// =====================================================
+	// SYNC USER AFTER EMPLOYEE UPDATE
+	// =====================================================
 
-        // Upload new image
-        if (dto.getProfileImage() != null
-                && !dto.getProfileImage().isEmpty()) {
+	private void syncUserAfterUpdate(String oldEmail, Employee employee) {
 
-            String fileName =
-                    fileService.uploadFile(
-                            dto.getProfileImage()
-                    );
+		/*
+		 * First try the employee's NEW email.
+		 */
 
-            emp.setProfileImage(fileName);
-        }
+		User user = userRepo.findByEmail(employee.getEmail()).orElse(null);
 
+		/*
+		 * If email was changed and the user still has the old email, find the old
+		 * account.
+		 */
 
-        Employee updatedEmployee =
-                emprepo.save(emp);
+		if (user == null && oldEmail != null && !oldEmail.equals(employee.getEmail())) {
 
+			user = userRepo.findByEmail(oldEmail).orElse(null);
+		}
 
-        // =================================================
-        // UPDATE REGISTERED USER
-        // =================================================
+		if (user != null) {
 
-        syncUserAfterUpdate(
-                oldEmail,
-                updatedEmployee
-        );
+			/*
+			 * Keep the registered account email synchronized with employee email.
+			 */
 
+			user.setEmail(employee.getEmail());
 
-        return convertToResponse(
-                updatedEmployee
-        );
-    }
+			user.setDepartment(employee.getDepartment());
 
+			user.setSalary(employee.getSalary());
 
-    // =====================================================
-    // SYNC USER AFTER EMPLOYEE UPDATE
-    // =====================================================
+			user.setJoiningDate(employee.getJoiningDate());
 
-    private void syncUserAfterUpdate(
-            String oldEmail,
-            Employee employee) {
+			userRepo.save(user);
+		}
+	}
 
-        /*
-         * First try the employee's NEW email.
-         */
+	// =====================================================
+	// DELETE EMPLOYEE
+	// =====================================================
+	@Caching(evict = { @CacheEvict(value = "employees", key = "#id"),
+			@CacheEvict(value = "employeeList", key = "'all'") })
+	public String deleteEmployee(Long id) {
 
-        User user =
-                userRepo.findByEmail(
-                        employee.getEmail()
-                ).orElse(null);
+		Employee emp = emprepo.findById(id).orElseThrow(() -> new EmployeeNotFoundException("Employee not found"));
 
+		/*
+		 * We intentionally DO NOT delete the User account.
+		 *
+		 * Example:
+		 *
+		 * Employee deleted User account remains available.
+		 */
 
-        /*
-         * If email was changed and the user still has
-         * the old email, find the old account.
-         */
+		emprepo.delete(emp);
 
-        if (user == null
-                && oldEmail != null
-                && !oldEmail.equals(
-                        employee.getEmail())) {
+		return "Employee Deleted Successfully";
+	}
 
-            user =
-                    userRepo.findByEmail(
-                            oldEmail
-                    ).orElse(null);
-        }
+	// =====================================================
+	// SEARCH EMPLOYEE
+	// =====================================================
 
+	public Page<EmployeeResponseDTO> searchEmployee(String name, int page, int size) {
 
-        if (user != null) {
+		Pageable pageable = PageRequest.of(page, size);
 
-            /*
-             * Keep the registered account email
-             * synchronized with employee email.
-             */
+		Page<Employee> employees = emprepo.findByFirstNameContainingIgnoreCase(name, pageable);
 
-            user.setEmail(
-                    employee.getEmail()
-            );
+		return employees.map(this::convertToResponse);
+	}
 
-            user.setDepartment(
-                    employee.getDepartment()
-            );
+	// =====================================================
+	// PAGINATION
+	// =====================================================
 
-            user.setSalary(
-                    employee.getSalary()
-            );
+	public Page<EmployeeResponseDTO> getEmployees(int page, int size) {
 
-            user.setJoiningDate(
-                    employee.getJoiningDate()
-            );
+		Pageable pageable = PageRequest.of(page, size);
 
-            userRepo.save(user);
-        }
-    }
+		return emprepo.findAll(pageable).map(this::convertToResponse);
+	}
 
+	// =====================================================
+	// SORT EMPLOYEES
+	// =====================================================
 
-    // =====================================================
-    // DELETE EMPLOYEE
-    // =====================================================
+	public List<EmployeeResponseDTO> sortEmployee(String field) {
 
-    public String deleteEmployee(Long id) {
+		return emprepo.findAll(Sort.by(field)).stream().map(this::convertToResponse).toList();
+	}
 
-        Employee emp =
-                emprepo.findById(id)
-                        .orElseThrow(
-                                () -> new EmployeeNotFoundException(
-                                        "Employee not found"
-                                )
-                        );
+	// =====================================================
+	// CONVERT TO RESPONSE
+	// =====================================================
 
-        /*
-         * We intentionally DO NOT delete the User account.
-         *
-         * Example:
-         *
-         * Employee deleted
-         * User account remains available.
-         */
+	private EmployeeResponseDTO convertToResponse(Employee employee) {
 
-        emprepo.delete(emp);
+		EmployeeResponseDTO response = modelMapper.map(employee, EmployeeResponseDTO.class);
 
-        return "Employee Deleted Successfully";
-    }
+		if (employee.getProfileImage() != null) {
 
+			response.setProfileImage("http://localhost:8080/employees/image/" + employee.getProfileImage());
+		}
 
-    // =====================================================
-    // SEARCH EMPLOYEE
-    // =====================================================
+		return response;
+	}
 
-    public Page<EmployeeResponseDTO> searchEmployee(
-            String name,
-            int page,
-            int size) {
+	// =====================================================
+	// UPDATE SALARY
+	// =====================================================
 
-        Pageable pageable =
-                PageRequest.of(page, size);
+	@Caching(evict = {
+		    @CacheEvict(value = "employees", key = "#id"),
+		    @CacheEvict(value = "employeeList", key = "'all'")
+		})
+	public EmployeeResponseDTO updatesalary(UpdateSalaryDTO dto, Long id) {
 
-        Page<Employee> employees =
-                emprepo.findByFirstNameContainingIgnoreCase(
-                        name,
-                        pageable
-                );
+		Employee emp = emprepo.findById(id)
+				.orElseThrow(() -> new EmployeeNotFoundException("Employee not found " + id));
 
-        return employees.map(
-                this::convertToResponse
-        );
-    }
+		emp.setSalary(dto.getSalary());
 
+		Employee updated = emprepo.save(emp);
 
-    // =====================================================
-    // PAGINATION
-    // =====================================================
+		// Sync salary with registered user
+		syncUserWithEmployee(updated);
 
-    public Page<EmployeeResponseDTO> getEmployees(
-            int page,
-            int size) {
+		return modelMapper.map(updated, EmployeeResponseDTO.class);
+	}
 
-        Pageable pageable =
-                PageRequest.of(page, size);
+	// =====================================================
+	// UPDATE EMAIL
+	// =====================================================
 
-        return emprepo
-                .findAll(pageable)
-                .map(this::convertToResponse);
-    }
+	@Caching(evict = {
+		    @CacheEvict(value = "employees", key = "#id"),
+		    @CacheEvict(value = "employeeList", key = "'all'")
+		})
+	public EmployeeResponseDTO updateEmail(UpdateEmailDTO dto, Long id) {
 
+		Employee emp = emprepo.findById(id).orElseThrow(() -> new EmployeeNotFoundException("Emp not found"));
 
-    // =====================================================
-    // SORT EMPLOYEES
-    // =====================================================
+		if (!emp.getEmail().equals(dto.getEmail()) && emprepo.existsByEmail(dto.getEmail())) {
 
-    public List<EmployeeResponseDTO> sortEmployee(
-            String field) {
+			throw new IllegalArgumentException("Email already present");
+		}
 
-        return emprepo
-                .findAll(
-                        Sort.by(field)
-                )
-                .stream()
-                .map(this::convertToResponse)
-                .toList();
-    }
+		String oldEmail = emp.getEmail();
 
+		emp.setEmail(dto.getEmail());
 
-    // =====================================================
-    // CONVERT TO RESPONSE
-    // =====================================================
+		Employee updated = emprepo.save(emp);
 
-    private EmployeeResponseDTO convertToResponse(
-            Employee employee) {
+		// Sync registered user's email
+		syncUserAfterUpdate(oldEmail, updated);
 
-        EmployeeResponseDTO response =
-                modelMapper.map(
-                        employee,
-                        EmployeeResponseDTO.class
-                );
+		return modelMapper.map(updated, EmployeeResponseDTO.class);
+	}
 
-        if (employee.getProfileImage() != null) {
+	// =====================================================
+	// DASHBOARD
+	// =====================================================
 
-            response.setProfileImage(
-                    "http://localhost:8080/employees/image/"
-                            + employee.getProfileImage()
-            );
-        }
+	public DashboardDTO getDashboardData() {
 
-        return response;
-    }
+		return new DashboardDTO(emprepo.totalEmployees(), emprepo.totalDepartments(), emprepo.averageSalary());
+	}
 
+	// =====================================================
+	// RECENT EMPLOYEES
+	// =====================================================
 
-    // =====================================================
-    // UPDATE SALARY
-    // =====================================================
+	public List<EmployeeResponseDTO> getRecentEmployees() {
 
-    public EmployeeResponseDTO updatesalary(
-            UpdateSalaryDTO dto,
-            Long id) {
+		return emprepo.findTop5ByOrderByIdDesc().stream().map(this::convertToResponse).toList();
+	}
 
-        Employee emp =
-                emprepo.findById(id)
-                        .orElseThrow(
-                                () -> new EmployeeNotFoundException(
-                                        "Employee not found " + id
-                                )
-                        );
+	// =====================================================
+	// DEPARTMENT CHART
+	// =====================================================
 
-        emp.setSalary(
-                dto.getSalary()
-        );
+	public List<DashboardChartDTO> getDepartmentChart() {
 
-        Employee updated =
-                emprepo.save(emp);
+		return emprepo.employeeDepartmentChart();
+	}
 
+	// =====================================================
+	// EXPORT EXCEL
+	// =====================================================
 
-        // Sync salary with registered user
-        syncUserWithEmployee(updated);
+	public ByteArrayInputStream exportEmployees() throws IOException {
 
+		List<Employee> employees = emprepo.findAll();
 
-        return modelMapper.map(
-                updated,
-                EmployeeResponseDTO.class
-        );
-    }
+		return excelService.exportEmployees(employees);
+	}
 
+	// =====================================================
+	// EXPORT PDF
+	// =====================================================
 
-    // =====================================================
-    // UPDATE EMAIL
-    // =====================================================
+	public ByteArrayInputStream exportPdf() {
 
-    public EmployeeResponseDTO updateEmail(
-            UpdateEmailDTO dto,
-            Long id) {
+		List<Employee> employees = emprepo.findAll();
 
-        Employee emp =
-                emprepo.findById(id)
-                        .orElseThrow(
-                                () -> new EmployeeNotFoundException(
-                                        "Emp not found"
-                                )
-                        );
+		return pdfService.generatePdf(employees);
+	}
 
-        if (!emp.getEmail().equals(
-                dto.getEmail())
-                && emprepo.existsByEmail(
-                        dto.getEmail())) {
+	// =====================================================
+	// SALARY CHART
+	// =====================================================
 
-            throw new IllegalArgumentException(
-                    "Email already present"
-            );
-        }
+	public List<SalaryChartDTO> getSalaryChart() {
 
-        String oldEmail =
-                emp.getEmail();
-
-        emp.setEmail(
-                dto.getEmail()
-        );
-
-        Employee updated =
-                emprepo.save(emp);
-
-
-        // Sync registered user's email
-        syncUserAfterUpdate(
-                oldEmail,
-                updated
-        );
-
-
-        return modelMapper.map(
-                updated,
-                EmployeeResponseDTO.class
-        );
-    }
-
-
-    // =====================================================
-    // DASHBOARD
-    // =====================================================
-
-    public DashboardDTO getDashboardData() {
-
-        return new DashboardDTO(
-                emprepo.totalEmployees(),
-                emprepo.totalDepartments(),
-                emprepo.averageSalary()
-        );
-    }
-
-
-    // =====================================================
-    // RECENT EMPLOYEES
-    // =====================================================
-
-    public List<EmployeeResponseDTO>
-    getRecentEmployees() {
-
-        return emprepo
-                .findTop5ByOrderByIdDesc()
-                .stream()
-                .map(this::convertToResponse)
-                .toList();
-    }
-
-
-    // =====================================================
-    // DEPARTMENT CHART
-    // =====================================================
-
-    public List<DashboardChartDTO>
-    getDepartmentChart() {
-
-        return emprepo.employeeDepartmentChart();
-    }
-
-
-    // =====================================================
-    // EXPORT EXCEL
-    // =====================================================
-
-    public ByteArrayInputStream exportEmployees()
-            throws IOException {
-
-        List<Employee> employees =
-                emprepo.findAll();
-
-        return excelService.exportEmployees(
-                employees
-        );
-    }
-
-
-    // =====================================================
-    // EXPORT PDF
-    // =====================================================
-
-    public ByteArrayInputStream exportPdf() {
-
-        List<Employee> employees =
-                emprepo.findAll();
-
-        return pdfService.generatePdf(
-                employees
-        );
-    }
-
-
-    // =====================================================
-    // SALARY CHART
-    // =====================================================
-
-    public List<SalaryChartDTO> getSalaryChart() {
-
-        return emprepo.getSalaryChart();
-    }
+		return emprepo.getSalaryChart();
+	}
 }
