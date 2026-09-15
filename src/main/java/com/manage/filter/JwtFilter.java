@@ -34,21 +34,41 @@ public class JwtFilter extends OncePerRequestFilter {
             FilterChain filterChain)
             throws ServletException, IOException {
 
+        System.out.println("========== JWT FILTER ==========");
+        System.out.println("REQUEST: " + request.getMethod() + " " + request.getRequestURI());
+
         String authHeader = request.getHeader("Authorization");
 
-        if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+        System.out.println("AUTH HEADER EXISTS: " + (authHeader != null));
 
+        if (authHeader == null) {
+            System.out.println("AUTH HEADER = NULL");
+            filterChain.doFilter(request, response);
+            return;
+        }
+
+        System.out.println("AUTH HEADER STARTS BEARER: "
+                + authHeader.startsWith("Bearer "));
+
+        if (!authHeader.startsWith("Bearer ")) {
+            System.out.println("INVALID AUTH HEADER");
             filterChain.doFilter(request, response);
             return;
         }
 
         String token = authHeader.substring(7);
 
-        String email = null;
+        String email;
 
         try {
             email = jwtService.extractUsername(token);
+
+            System.out.println("JWT EMAIL: " + email);
+
         } catch (Exception e) {
+
+            System.out.println("JWT ERROR: " + e.getMessage());
+
             filterChain.doFilter(request, response);
             return;
         }
@@ -56,30 +76,57 @@ public class JwtFilter extends OncePerRequestFilter {
         if (email != null &&
                 SecurityContextHolder.getContext().getAuthentication() == null) {
 
-            UserDetails userDetails =
-                    userDetailsService.loadUserByUsername(email);
-            System.out.println("========== JWT DEBUG ==========");
-            System.out.println("JWT EMAIL: " + email);
-            System.out.println("AUTHORITIES: " + userDetails.getAuthorities());
-            System.out.println("================================");
-            if (jwtService.validateToken(token, userDetails.getUsername())) {
+            try {
 
-                UsernamePasswordAuthenticationToken authentication =
-                        new UsernamePasswordAuthenticationToken(
-                                userDetails,
-                                null,
-                                userDetails.getAuthorities());
+                UserDetails userDetails =
+                        userDetailsService.loadUserByUsername(email);
 
-                authentication.setDetails(
-                        new WebAuthenticationDetailsSource()
-                                .buildDetails(request));
+                System.out.println(
+                        "USER AUTHORITIES: "
+                        + userDetails.getAuthorities()
+                );
 
-                SecurityContextHolder
-                        .getContext()
-                        .setAuthentication(authentication);
+                if (jwtService.validateToken(
+                        token,
+                        userDetails.getUsername())) {
+
+                    UsernamePasswordAuthenticationToken authentication =
+                            new UsernamePasswordAuthenticationToken(
+                                    userDetails,
+                                    null,
+                                    userDetails.getAuthorities()
+                            );
+
+                    authentication.setDetails(
+                            new WebAuthenticationDetailsSource()
+                                    .buildDetails(request)
+                    );
+
+                    SecurityContextHolder
+                            .getContext()
+                            .setAuthentication(authentication);
+
+                    System.out.println(
+                            "AUTHENTICATION SUCCESS: "
+                            + SecurityContextHolder
+                                    .getContext()
+                                    .getAuthentication()
+                    );
+
+                } else {
+                    System.out.println("JWT VALIDATION FAILED");
+                }
+
+            } catch (Exception e) {
+
+                System.out.println(
+                        "USER/JWT PROCESSING ERROR: "
+                        + e.getMessage()
+                );
+
+                e.printStackTrace();
             }
         }
 
         filterChain.doFilter(request, response);
-    }
-}
+    }}
