@@ -114,10 +114,6 @@ public class UserService {
 
     public AuthResponse login(LoginRequest dto) {
 
-        long start = System.currentTimeMillis();
-
-        System.out.println("LOGIN START");
-
         authenticationManager.authenticate(
             new UsernamePasswordAuthenticationToken(
                 dto.getEmail(),
@@ -125,19 +121,16 @@ public class UserService {
             )
         );
 
-        System.out.println(
-            "Authentication took: "
-            + (System.currentTimeMillis() - start)
-            + " ms"
-        );
+        User user = repo.findByEmail(dto.getEmail())
+                .orElseThrow(
+                    () -> new RuntimeException("User not found")
+                );
 
-        String token = jwtService.generateToken(dto.getEmail());
-
-        System.out.println(
-            "Total login took: "
-            + (System.currentTimeMillis() - start)
-            + " ms"
-        );
+        String token =
+                jwtService.generateToken(
+                        user.getEmail(),
+                        user.getRole()
+                );
 
         return new AuthResponse(token);
     }
